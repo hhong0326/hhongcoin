@@ -1,0 +1,70 @@
+// type Block struct {
+// 	Data     string `json:"data"`
+// 	Hash     string `json:"hash"`
+// 	PrevHash string `json:"prevHash,omitempty"`
+// 	Height   int    `json:"height"`
+// }
+
+// type blockchain struct {
+// 	// blocks []*Block // very long, then pointer!
+// 	NewestHash string `json:"newestHash"`
+// 	Height     int    `json:"height"`
+// }
+
+// Singleton Pattern
+// Want to be sharing only One Instance
+// var b *blockchain // == (b *blockchain) receiver
+// var once sync.Once
+
+// func (b *blockchain) AddBlock(data string) {
+// 	block := Block{data, "", b.NewestHash, b.Height + 1}
+// }
+
+// // Singleton
+// func BlockChain() *blockchain {
+// 	if b == nil { // only happend Once
+// 		// Init
+// 		once.Do(func() { // Only Once though there has many Goroutine starting
+// 			b = &blockchain{"", 0} // Instance
+// 			b.AddBlock("Genesis")
+// 		}) // only one time call on go routine situation
+// 	}
+
+// 	return b // has been already Init
+// }
+
+// func (b *Block) calculateHash() {
+// 	hash := sha256.Sum256([]byte(b.Data + b.PrevHash))
+// 	b.Hash = fmt.Sprintf("%x", hash)
+// }
+
+// func getLastHash() string {
+// 	totalBlocks := len(GetBlockChain().blocks)
+// 	if totalBlocks == 0 {
+// 		return ""
+// 	}
+// 	return GetBlockChain().blocks[totalBlocks-1].Hash
+// }
+
+// func createBlock(data string) *Block {
+// 	newBlock := Block{data, "", getLastHash(), len(GetBlockChain().blocks) + 1}
+// 	newBlock.calculateHash()
+// 	return &newBlock
+// }
+
+// func (b *blockchain) AddBlock(data string) {
+// 	b.blocks = append(b.blocks, createBlock(data))
+// }
+
+// func (b *blockchain) AllBlocks() []*Block {
+// 	return b.blocks
+// }
+
+// var ErrNotFound = errors.New("block not found")
+
+// func (b *blockchain) GetBlock(height int) (*Block, error) {
+// 	if height > len(b.blocks) {
+// 		return nil, ErrNotFound
+// 	}
+// 	return b.blocks[height-1], nil
+// }
