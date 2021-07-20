@@ -11,13 +11,14 @@ import (
 )
 
 type Block struct {
-	Data       string `json:"data"`
-	Hash       string `json:"hash"`
-	PrevHash   string `json:"prevHash,omitempty"`
-	Height     int    `json:"height"`
-	Difficulty int    `json:"difficulty"`
-	Nonce      int    `json:"nonce"`
-	Timestamp  int    `json:"timestamp"`
+	// Data         string `json:"data"`
+	Hash         string `json:"hash"`
+	PrevHash     string `json:"prevHash,omitempty"`
+	Height       int    `json:"height"`
+	Difficulty   int    `json:"difficulty"`
+	Nonce        int    `json:"nonce"`
+	Timestamp    int    `json:"timestamp"`
+	Transactions []*Tx  `json:"transactions"`
 }
 
 func (b *Block) restore(data []byte) {
@@ -57,18 +58,18 @@ func (b *Block) mine() {
 	}
 }
 
-func createBlock(data string, prevHash string, height int) *Block {
+func createBlock(prevHash string, height int, diff int) *Block {
 	block := &Block{
-		Data:       data,
 		Hash:       "",
 		PrevHash:   prevHash,
 		Height:     height,
-		Difficulty: BlockChain().difficulty(),
+		Difficulty: diff,
 		Nonce:      0,
 	}
 	// payload := block.Data + block.PrevHash + fmt.Sprint(block.Height)
 	// block.Hash = fmt.Sprintf("%x", sha256.Sum256([]byte(payload)))
-	block.mine()
+	block.mine() // after that bcz it's up in the air
+	block.Transactions = Mempool.TxToConfirm()
 	block.persist()
 	return block
 }
