@@ -38,4 +38,33 @@ func main() {
 	defer db.Close()
 	cli.Start()
 
+	// wallet.Wallet()
+
+	// Go routines
+	// c := make(chan int, 10)
+	// go send(c)
+	// receive(c)
+
 }
+
+// func receive(c <-chan int) {
+// 	for {
+// 		time.Sleep(time.Second * 10)
+// 		i, ok := <-c
+// 		if !ok {
+// 			fmt.Println("we are done")
+// 			break
+// 		}
+// 		fmt.Println("receive: ", i)
+// 	}
+
+// }
+// func send(c chan<- int) {
+// 	for i := range [10]int{} {
+// 		fmt.Println("sending: ", i)
+// 		c <- i
+// 		fmt.Println("sent: ", i)
+// 	}
+
+// 	close(c)
+// }

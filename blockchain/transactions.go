@@ -1,10 +1,14 @@
 package blockchain
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
+	"sync"
 	"time"
 
 	"github.com/hhong0326/hhongcoin/utils"
+	"github.com/hhong0326/hhongcoin/wallet"
 )
 
 // transaction life-cycle
@@ -15,11 +19,22 @@ const (
 )
 
 type mempool struct {
-	Txs []*Tx
+	Txs map[string]*Tx
+	m   sync.Mutex
 }
 
 // on memory
-var Mempool *mempool = &mempool{}
+var m *mempool
+var memOnce sync.Once
+
+func Mempool() *mempool {
+	memOnce.Do(func() {
+		m = &mempool{
+			Txs: make(map[string]*Tx),
+		}
+	})
+	return m
+}
 
 type Tx struct {
 	ID        string   `json:"id"`
@@ -29,14 +44,14 @@ type Tx struct {
 }
 
 type TxIn struct {
-	TxID  string `json:"txId"`  // find previous txOuts
-	Index int    `json:"index"` // which txOut
-	Owner string `json:"owner"`
+	TxID      string `json:"txId"`  // find previous txOuts
+	Index     int    `json:"index"` // which txOut
+	Signature string `json:"signature"`
 }
 
 type TxOut struct {
-	Owner  string `json:"owner"`
-	Amount int    `json:"amount"`
+	Address string `json:"address"`
+	Amount  int    `json:"amount"`
 }
 
 type UTxOut struct {
@@ -49,10 +64,34 @@ func (tx *Tx) getId() {
 	tx.ID = utils.Hash(tx)
 }
 
+func (tx *Tx) sign() {
+	for _, txIn := range tx.TxIns {
+		txIn.Signature = wallet.Sign(tx.ID, wallet.Wallet())
+	}
+}
+
+// ***
+func validate(tx *Tx) bool {
+	valid := true
+	for _, txIn := range tx.TxIns {
+		prevTx := FindTx(BlockChain(), txIn.TxID)
+		if prevTx == nil {
+			valid = false
+			break
+		}
+		address := prevTx.TxOuts[txIn.Index].Address
+		valid = wallet.Verify(txIn.Signature, tx.ID, address)
+		if !valid {
+			break
+		}
+	}
+	return valid
+}
+
 func isOnMempool(uTxOut *UTxOut) bool {
 	exists := false
 Outer:
-	for _, tx := range Mempool.Txs {
+	for _, tx := range Mempool().Txs {
 		for _, input := range tx.TxIns {
 			if input.TxID == uTxOut.TxID && input.Index == uTxOut.Index {
 				exists = true
@@ -127,9 +166,12 @@ func makeCoinbaseTx(address string) *Tx {
 // return tx, nil
 // }
 
+var ErrorNoMoney = errors.New("not enough money")
+var ErrorNotValid = errors.New("Tx Invalid")
+
 func makeTx(from, to string, amount int) (*Tx, error) {
 	if BalanceByAddress(from, BlockChain()) < amount {
-		return nil, errors.New("not enough money")
+		return nil, ErrorNoMoney
 	}
 
 	var txOuts []*TxOut
@@ -161,29 +203,56 @@ func makeTx(from, to string, amount int) (*Tx, error) {
 		TxOuts:    txOuts,
 	}
 	tx.getId()
+	tx.sign()
+	valid := validate(tx)
+	if !valid {
+		return nil, ErrorNotValid
+	}
 
 	return tx, nil
 }
 
-func (m *mempool) AddTx(to string, amount int) error {
-	tx, err := makeTx("hong", to, amount)
+func (m *mempool) AddTx(to string, amount int) (*Tx, error) {
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	tx, err := makeTx(wallet.Wallet().Address, to, amount)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	m.Txs = append(m.Txs, tx)
+	m.Txs[tx.ID] = tx
 
-	return nil
+	return tx, nil
 }
 
 // chaining the tx to the block and making empty mempool
 func (m *mempool) TxToConfirm() []*Tx {
-	coinbase := makeCoinbaseTx("hong")
-	txs := m.Txs
+	coinbase := makeCoinbaseTx(wallet.Wallet().Address)
+	var txs []*Tx
+
+	for _, tx := range m.Txs {
+		txs = append(txs, tx)
+	}
+
 	txs = append(txs, coinbase)
-	m.Txs = nil
+	m.Txs = make(map[string]*Tx)
 
 	return txs
+}
+
+func (m *mempool) AddPeerTx(tx *Tx) {
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	m.Txs[tx.ID] = tx
+}
+
+func GetMempool(m *mempool, rw http.ResponseWriter) {
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	utils.HandleErr(json.NewEncoder(rw).Encode(m.Txs))
 }
 
 // Tx1

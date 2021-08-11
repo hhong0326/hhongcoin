@@ -8,7 +8,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hhong0326/hhongcoin/blockchain"
+	"github.com/hhong0326/hhongcoin/p2p"
 	"github.com/hhong0326/hhongcoin/utils"
+	"github.com/hhong0326/hhongcoin/wallet"
 )
 
 var port string
@@ -34,6 +36,10 @@ type balanceResponse struct {
 	Balance int    `json:"balance"`
 }
 
+type myWalletResponse struct {
+	Address string `json:"address"`
+}
+
 type addBlockBody struct {
 	Message string `json:"message"`
 }
@@ -45,6 +51,10 @@ type errorResponse struct {
 type addTxPayload struct {
 	To     string
 	Amount int
+}
+
+type addPeerPayload struct {
+	Address, Port string
 }
 
 func documentaition(rw http.ResponseWriter, r *http.Request) {
@@ -80,6 +90,16 @@ func documentaition(rw http.ResponseWriter, r *http.Request) {
 			Method:      "GET",
 			Description: "Get TxOuts for an Address",
 		},
+		{
+			URL:         url("/ws"),
+			Method:      "GET",
+			Description: "Upgrade to WebSockets",
+		},
+		{
+			URL:         url("/peers"),
+			Method:      "GET",
+			Description: "Peer to other port",
+		},
 	}
 
 	// b, err := json.Marshal(data)
@@ -95,7 +115,9 @@ func blocks(rw http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(rw).Encode(blockchain.Blocks(blockchain.BlockChain()))
 	case "POST":
 
-		blockchain.BlockChain().AddBlock()
+		newBlock := blockchain.BlockChain().AddBlock()
+		p2p.BroacastNewBlock(newBlock)
+
 		rw.WriteHeader(http.StatusCreated)
 	}
 }
@@ -122,8 +144,15 @@ func jsonContentTypeMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func loggerMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.URL)
+		next.ServeHTTP(rw, r)
+	})
+}
+
 func status(rw http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(rw).Encode(blockchain.BlockChain())
+	blockchain.Status(blockchain.BlockChain(), rw)
 }
 
 func balance(rw http.ResponseWriter, r *http.Request) {
@@ -140,33 +169,55 @@ func balance(rw http.ResponseWriter, r *http.Request) {
 }
 
 func mempool(rw http.ResponseWriter, r *http.Request) {
-	utils.HandleErr(json.NewEncoder(rw).Encode(blockchain.Mempool.Txs))
+	blockchain.GetMempool(blockchain.Mempool(), rw)
+}
+
+func myWallet(rw http.ResponseWriter, r *http.Request) {
+	address := wallet.Wallet().Address
+	json.NewEncoder(rw).Encode(myWalletResponse{Address: address})
 }
 
 func transactions(rw http.ResponseWriter, r *http.Request) {
 	var payload addTxPayload
 	// json to struct
 	utils.HandleErr(json.NewDecoder(r.Body).Decode(&payload))
-	err := blockchain.Mempool.AddTx(payload.To, payload.Amount)
+	tx, err := blockchain.Mempool().AddTx(payload.To, payload.Amount)
 	if err != nil {
-		json.NewEncoder(rw).Encode(errorResponse{"not enough funds"})
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(errorResponse{err.Error()})
 		return
 	}
+
+	p2p.BroadcastNewTx(tx) // go
 	rw.WriteHeader(http.StatusCreated)
+}
+
+func peers(rw http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		json.NewEncoder(rw).Encode(p2p.AllPeers(&p2p.Peers))
+	case "POST":
+		var payload addPeerPayload
+		json.NewDecoder(r.Body).Decode(&payload)
+		p2p.AddPeer(payload.Address, payload.Port, port[1:], true)
+		rw.WriteHeader(http.StatusOK)
+	}
 }
 
 func Start(aPort int) {
 	router := mux.NewRouter()
-	router.Use(jsonContentTypeMiddleware)
+	router.Use(jsonContentTypeMiddleware, loggerMiddleware)
 	port = fmt.Sprintf(":%d", aPort)
 	router.HandleFunc("/", documentaition).Methods("GET")
 	router.HandleFunc("/status", status)
 	router.HandleFunc("/blocks", blocks).Methods("GET", "POST")
 	router.HandleFunc("/blocks/{hash:[a-f0-9]+}", block).Methods("GET")
-	router.HandleFunc("/balance/{address}", balance)
-	router.HandleFunc("/mempool", mempool)
+	router.HandleFunc("/balance/{address}", balance).Methods("GET")
+	router.HandleFunc("/mempool", mempool).Methods("GET")
+	router.HandleFunc("/wallet", myWallet).Methods("GET")
 	router.HandleFunc("/transactions", transactions).Methods("POST")
-
+	router.HandleFunc("/ws", p2p.Upgrade).Methods("GET")
+	router.HandleFunc("/peers", peers).Methods("GET", "POST")
 	fmt.Printf("Listening on http://localhost%s\n", port)
 	log.Fatal(http.ListenAndServe(port, router))
 }

@@ -1,6 +1,8 @@
 package blockchain
 
 import (
+	"encoding/json"
+	"net/http"
 	"sync"
 
 	"github.com/hhong0326/hhongcoin/db"
@@ -19,6 +21,7 @@ type blockchain struct {
 	NewestHash        string `json:"newestHash"`
 	Height            int    `json:"height"`
 	CurrentDifficulty int    `json:"currentDifficulty"`
+	m                 sync.Mutex
 }
 
 // Singleton Pattern
@@ -26,16 +29,38 @@ type blockchain struct {
 var b *blockchain // == (b *blockchain) receiver
 var once sync.Once
 
+// Singleton
+func BlockChain() *blockchain {
+	// only happend Once
+	// Init
+	once.Do(func() { // Only Once though there has many Goroutine starting
+		b = &blockchain{ // Instance
+			Height: 0,
+		}
+		// search for checkpoint on the db
+		if checkpoint := db.Checkpoint(); checkpoint == nil {
+			b.AddBlock()
+		} else {
+			// restore b from bytes
+			b.restore(checkpoint)
+		}
+	}) // only one time call on go routine situation
+
+	return b // has been already Init
+}
+
 func (b *blockchain) restore(data []byte) {
 	utils.FromBytes(b, data)
 }
 
-func (b *blockchain) AddBlock() {
+func (b *blockchain) AddBlock() *Block {
 	block := createBlock(b.NewestHash, b.Height+1, getDifficulty(b))
 	b.NewestHash = block.Hash
 	b.Height = block.Height
 	b.CurrentDifficulty = block.Difficulty
 	persistBlockchain(b)
+
+	return block
 }
 
 func persistBlockchain(b *blockchain) {
@@ -44,6 +69,9 @@ func persistBlockchain(b *blockchain) {
 
 // Any
 func Blocks(b *blockchain) []*Block {
+	b.m.Lock()
+	defer b.m.Unlock()
+
 	var blocks []*Block
 	hashCursor := b.NewestHash // variable로 받아올 수 있다
 	for {
@@ -57,6 +85,23 @@ func Blocks(b *blockchain) []*Block {
 		}
 	}
 	return blocks
+}
+
+func Txs(b *blockchain) []*Tx {
+	var txs []*Tx
+	for _, block := range Blocks(b) {
+		txs = append(txs, block.Transactions...)
+	}
+	return txs
+}
+
+func FindTx(b *blockchain, targetID string) *Tx {
+	for _, tx := range Txs(b) {
+		if tx.ID == targetID {
+			return tx
+		}
+	}
+	return nil
 }
 
 // Any
@@ -130,7 +175,10 @@ func UTxOutsByAddress(address string, b *blockchain) []*UTxOut {
 	for _, block := range Blocks(b) {
 		for _, tx := range block.Transactions {
 			for _, input := range tx.TxIns {
-				if input.Owner == address {
+				if input.Signature == "COINBASE" {
+					break
+				}
+				if FindTx(b, input.TxID).TxOuts[input.Index].Address == address {
 					// I! this input can find tx what created txout
 					// 사용자가 input 으로 사용하는 output을 찾아 그 output을 가진 tx의 id를 map에 저장
 					// 이미 input으로 사용된 output을 소유한 txs 마킹
@@ -139,7 +187,7 @@ func UTxOutsByAddress(address string, b *blockchain) []*UTxOut {
 			}
 
 			for i, output := range tx.TxOuts {
-				if output.Owner == address {
+				if output.Address == address {
 					if _, ok := creatorTxs[tx.ID]; !ok {
 						//not found
 						uTxOut := &UTxOut{tx.ID, i, output.Amount}
@@ -167,24 +215,48 @@ func BalanceByAddress(address string, b *blockchain) int {
 	return amount
 }
 
-// Singleton
-func BlockChain() *blockchain {
-	// only happend Once
-	// Init
-	once.Do(func() { // Only Once though there has many Goroutine starting
-		b = &blockchain{ // Instance
-			Height: 0,
-		}
-		// search for checkpoint on the db
-		if checkpoint := db.Checkpoint(); checkpoint == nil {
-			b.AddBlock()
-		} else {
-			// restore b from bytes
-			b.restore(checkpoint)
-		}
-	}) // only one time call on go routine situation
+func Status(b *blockchain, rw http.ResponseWriter) {
+	b.m.Lock()
+	defer b.m.Unlock()
 
-	return b // has been already Init
+	utils.HandleErr(json.NewEncoder(rw).Encode(b))
+}
+
+func (b *blockchain) Replace(newBlocks []*Block) {
+	b.m.Lock()
+	defer b.m.Unlock()
+
+	b.CurrentDifficulty = newBlocks[0].Difficulty
+	b.Height = len(newBlocks)
+	b.NewestHash = newBlocks[0].Hash
+
+	persistBlockchain(b)
+	db.EmptyBlocks()
+
+	for _, block := range newBlocks {
+		persistBlock(block)
+	}
+}
+
+func (b *blockchain) AddPeerBlock(newBlock *Block) {
+	b.m.Lock()
+	m.m.Lock()
+	defer b.m.Unlock()
+	defer m.m.Unlock()
+
+	b.Height += 1
+	b.CurrentDifficulty = newBlock.Difficulty
+	b.NewestHash = newBlock.Hash
+
+	persistBlockchain(b)
+	persistBlock(newBlock)
+
+	for _, tx := range newBlock.Transactions {
+		_, ok := m.Txs[tx.ID]
+		if ok {
+			delete(m.Txs, tx.ID)
+		}
+	}
 }
 
 // What should be receiver / function
