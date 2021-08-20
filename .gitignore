@@ -1,3 +1,5 @@
 *.db
 beforeDB.txt
 person
+cover.out
+*.wallet
