@@ -3,6 +3,8 @@ package wallet
 import (
 	"crypto/x509"
 	"encoding/hex"
+	"io/fs"
+	"reflect"
 	"testing"
 )
 
@@ -11,6 +13,60 @@ const (
 	testPayload string = "0fdb69f9c89d2033b3ccfe0af64c5d74492234b39df052d6c0f30d8b17372f5d"
 	testSig     string = "091c543a83e44f26561dc57aefb12ee4b67a848c51cef2625ade3efe453871d14feede139728e820cdd5b4e7b3ade232c01db58880b3aed9e4344585e2e41045"
 )
+
+// interface 구현
+type fakeLayer struct {
+	fakeHasWalletFile func() bool
+}
+
+// func (fakeLayer) hasWalletFile() bool {
+// }
+
+// ->
+// (같은 func을 다른 방식으로)
+func (f fakeLayer) hasWalletFile() bool {
+	return f.fakeHasWalletFile()
+}
+
+func (fakeLayer) writeFile(name string, data []byte, perm fs.FileMode) error {
+	return nil
+}
+
+func (fakeLayer) readFile(name string) ([]byte, error) {
+	return x509.MarshalECPrivateKey(makeTestWallet().privateKey)
+}
+func TestWallet(t *testing.T) {
+
+	t.Run("New Wallet is created", func(t *testing.T) {
+		files = fakeLayer{ // (같은 함수를 다른 방식으로)
+			fakeHasWalletFile: func() bool {
+				t.Log("I have been called")
+				return false
+			},
+		}
+
+		tw := Wallet()
+		if reflect.TypeOf(tw) != reflect.TypeOf(&wallet{}) {
+			t.Error("New Wallet should return a new wallet instance")
+		}
+
+	})
+
+	t.Run("Wallet is restored", func(t *testing.T) {
+		files = fakeLayer{ // (같은 함수를 다른 방식으로)
+			fakeHasWalletFile: func() bool {
+				t.Log("I have been called")
+				return true
+			},
+		}
+
+		w = nil
+		tw := Wallet()
+		if reflect.TypeOf(tw) != reflect.TypeOf(&wallet{}) {
+			t.Error("New Wallet should return a new wallet instance")
+		}
+	})
+}
 
 func makeTestWallet() *wallet {
 	w := &wallet{}

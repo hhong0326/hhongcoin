@@ -7,20 +7,12 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"math/big"
 	"os"
 
 	"github.com/hhong0326/hhongcoin/utils"
 )
-
-// 1) hash the msg
-// " " -> hash(x) -> "hashed_message"
-// 2) generate key pair
-// Keypair (privateK, publicK) -> publicK will use in verify (Save priv to a file)
-// 3) sign the hash
-// ("hashed_message" + privateK) -> "signature"
-// verify
-// ("hashed_message" + "signature" + publicK) -> true / false
 
 const (
 	signature     string = "c5138ca9d6529cd3f71baf01c0026ad9dcb5a7a06dd64785dd11f83d8c883854e732d2aa5b627744e5f083240f628be379396a6d070f1ad8434dcf1f321ec7a5"
@@ -32,17 +24,37 @@ const (
 	fileName string = "hhongcoin.wallet"
 )
 
+// interface allows 함수의 모양
+type fileLayer interface {
+	hasWalletFile() bool
+	writeFile(name string, data []byte, perm fs.FileMode) error
+	readFile(name string) ([]byte, error)
+}
+
+type layer struct{}
+
+// Go의 interface는 암묵적 구현이 됨
+func (layer) hasWalletFile() bool {
+	_, err := os.Stat(fileName)
+	return !os.IsNotExist(err)
+}
+
+func (layer) writeFile(name string, data []byte, perm fs.FileMode) error {
+	return os.WriteFile(name, data, perm)
+}
+
+func (layer) readFile(name string) ([]byte, error) {
+	return os.ReadFile(name)
+}
+
+var files fileLayer = layer{}
+
 type wallet struct {
 	privateKey *ecdsa.PrivateKey
 	Address    string
 }
 
 var w *wallet
-
-func hasWalletFile() bool {
-	_, err := os.Stat(fileName)
-	return !os.IsNotExist(err)
-}
 
 func createPrivKey() *ecdsa.PrivateKey {
 	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -55,12 +67,12 @@ func persistKey(key *ecdsa.PrivateKey) {
 	bytes, err := x509.MarshalECPrivateKey(key)
 	utils.HandleErr(err)
 
-	err = os.WriteFile(fileName, bytes, 0644) //read and write
+	err = files.writeFile(fileName, bytes, 0644) //read and write
 	utils.HandleErr(err)
 }
 
 func restoreKey() (key *ecdsa.PrivateKey) { // return 될 variable을 사전에 선언
-	keyAsBytes, err := os.ReadFile(fileName)
+	keyAsBytes, err := files.readFile(fileName)
 	utils.HandleErr(err)
 
 	key, err = x509.ParseECPrivateKey(keyAsBytes)
@@ -128,7 +140,7 @@ func Wallet() *wallet {
 	if w == nil {
 		w = &wallet{}
 		// has a wallet already?
-		if hasWalletFile() {
+		if files.hasWalletFile() {
 			// yes -> restore from file
 			w.privateKey = restoreKey()
 		} else {
@@ -144,52 +156,63 @@ func Wallet() *wallet {
 	return w
 }
 
-func Start() {
-	// privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	// utils.HandleErr(err)
+// wallet concept
 
-	// keyAsBytes, err := x509.MarshalECPrivateKey(privateKey)
-	// utils.HandleErr(err)
+// 1) hash the msg
+// " " -> hash(x) -> "hashed_message"
+// 2) generate key pair
+// Keypair (privateK, publicK) -> publicK will use in verify (Save priv to a file)
+// 3) sign the hash
+// ("hashed_message" + privateK) -> "signature"
+// verify
+// ("hashed_message" + "signature" + publicK) -> true / false
 
-	// fmt.Printf("%x\n", keyAsBytes)
+// func Start() {
+// 	// privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+// 	// utils.HandleErr(err)
 
-	// hashAsBytes, err := hex.DecodeString(hashedMessage)
-	// utils.HandleErr(err)
+// 	// keyAsBytes, err := x509.MarshalECPrivateKey(privateKey)
+// 	// utils.HandleErr(err)
 
-	// r, s, err := ecdsa.Sign(rand.Reader, privateKey, hashAsBytes) // divided signature r, s
-	// utils.HandleErr(err)
+// 	// fmt.Printf("%x\n", keyAsBytes)
 
-	// signature := append(r.Bytes(), s.Bytes()...)
-	// fmt.Printf("%x\n", signature)
+// 	// hashAsBytes, err := hex.DecodeString(hashedMessage)
+// 	// utils.HandleErr(err)
 
-	// ok := ecdsa.Verify(&privateKey.PublicKey, hashAsBytes, r, s)
+// 	// r, s, err := ecdsa.Sign(rand.Reader, privateKey, hashAsBytes) // divided signature r, s
+// 	// utils.HandleErr(err)
 
-	// fmt.Println(ok)
+// 	// signature := append(r.Bytes(), s.Bytes()...)
+// 	// fmt.Printf("%x\n", signature)
 
-	// 16진수 체크
-	privBytes, err := hex.DecodeString(privateKey)
-	utils.HandleErr(err)
+// 	// ok := ecdsa.Verify(&privateKey.PublicKey, hashAsBytes, r, s)
 
-	private, err := x509.ParseECPrivateKey(privBytes)
-	utils.HandleErr(err)
+// 	// fmt.Println(ok)
 
-	fmt.Println(private)
+// 	// 16진수 체크
+// 	privBytes, err := hex.DecodeString(privateKey)
+// 	utils.HandleErr(err)
 
-	sigBytes, err := hex.DecodeString(signature)
-	rBytes := sigBytes[:len(sigBytes)/2]
-	sBytes := sigBytes[len(sigBytes)/2:]
+// 	private, err := x509.ParseECPrivateKey(privBytes)
+// 	utils.HandleErr(err)
 
-	fmt.Printf("%d\n\n%d\n\n%d\n\n", sigBytes, rBytes, sBytes)
+// 	fmt.Println(private)
 
-	var bigR, bigS = big.Int{}, big.Int{}
+// 	sigBytes, err := hex.DecodeString(signature)
+// 	rBytes := sigBytes[:len(sigBytes)/2]
+// 	sBytes := sigBytes[len(sigBytes)/2:]
 
-	bigR.SetBytes(rBytes)
-	bigS.SetBytes(sBytes)
+// 	fmt.Printf("%d\n\n%d\n\n%d\n\n", sigBytes, rBytes, sBytes)
 
-	hashBytes, err := hex.DecodeString(hashedMessage)
-	utils.HandleErr(err)
+// 	var bigR, bigS = big.Int{}, big.Int{}
 
-	ok := ecdsa.Verify(&private.PublicKey, hashBytes, &bigR, &bigS)
+// 	bigR.SetBytes(rBytes)
+// 	bigS.SetBytes(sBytes)
 
-	fmt.Println(ok)
-}
+// 	hashBytes, err := hex.DecodeString(hashedMessage)
+// 	utils.HandleErr(err)
+
+// 	ok := ecdsa.Verify(&private.PublicKey, hashBytes, &bigR, &bigS)
+
+// 	fmt.Println(ok)
+// }
