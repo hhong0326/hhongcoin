@@ -24,10 +24,22 @@ type blockchain struct {
 	m                 sync.Mutex
 }
 
+// interface for fake db testing
+type storage interface {
+	FindBlock(hash string) []byte
+	LoadChain() []byte
+	SaveBlock(hash string, data []byte)
+	SaveChain(data []byte)
+	EmptyBlocks()
+}
+
 // Singleton Pattern
 // Want to be sharing only One Instance
 var b *blockchain // == (b *blockchain) receiver
 var once sync.Once
+
+// to make variable
+var dbStorage storage = db.DB{} // adapter
 
 // Singleton
 func BlockChain() *blockchain {
@@ -38,7 +50,7 @@ func BlockChain() *blockchain {
 			Height: 0,
 		}
 		// search for checkpoint on the db
-		if checkpoint := db.Checkpoint(); checkpoint == nil {
+		if checkpoint := dbStorage.LoadChain(); checkpoint == nil {
 			b.AddBlock()
 		} else {
 			// restore b from bytes
@@ -64,7 +76,7 @@ func (b *blockchain) AddBlock() *Block {
 }
 
 func persistBlockchain(b *blockchain) {
-	db.SaveCheckpoint(utils.ToBytes(b))
+	dbStorage.SaveChain(utils.ToBytes(b))
 }
 
 // Any
@@ -231,7 +243,7 @@ func (b *blockchain) Replace(newBlocks []*Block) {
 	b.NewestHash = newBlocks[0].Hash
 
 	persistBlockchain(b)
-	db.EmptyBlocks()
+	dbStorage.EmptyBlocks()
 
 	for _, block := range newBlocks {
 		persistBlock(block)

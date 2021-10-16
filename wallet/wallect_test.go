@@ -14,7 +14,7 @@ const (
 	testSig     string = "091c543a83e44f26561dc57aefb12ee4b67a848c51cef2625ade3efe453871d14feede139728e820cdd5b4e7b3ade232c01db58880b3aed9e4344585e2e41045"
 )
 
-// interface 구현
+// interface 가지고 재구현
 type fakeLayer struct {
 	fakeHasWalletFile func() bool
 }
@@ -110,8 +110,8 @@ func TestVerify(t *testing.T) {
 }
 
 func TestRestoreBigInts(t *testing.T) {
-	_, _, err := restoreBigInts("xx")
+	_, _, err := restoreBigInts("xx") // error moment
 	if err == nil {
-		t.Error("restoreBigInts should return error when payload is not hex.")
+		t.Error("restoreBigInts() should return error when payload is not hex.")
 	}
 }

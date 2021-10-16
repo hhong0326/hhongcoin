@@ -124,10 +124,12 @@ func TestToJSON(t *testing.T) {
 }
 
 // Testing
-// make file (package name)_test.go in package
+// make file (package or file name)_test.go in package
 // in terminal enter a cmd go test ./... -v
 
 // Coverage
 // show visually part of testing
 // go test -v -coverprofile cover.out ./...
 // go tool cover -html=cover.out
+
+// using t.Run can two things test by a function

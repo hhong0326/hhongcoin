@@ -24,7 +24,7 @@ const (
 	fileName string = "hhongcoin.wallet"
 )
 
-// interface allows 함수의 모양
+// interface allows 함수의 모양 signature
 type fileLayer interface {
 	hasWalletFile() bool
 	writeFile(name string, data []byte, perm fs.FileMode) error
