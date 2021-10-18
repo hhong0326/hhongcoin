@@ -135,3 +135,29 @@ func TestFindTx(t *testing.T) {
 	})
 
 }
+
+func TestReplace(t *testing.T) {
+
+	b := &Block{
+		Difficulty: 1,
+		Hash:       "x",
+	}
+
+	BlockChain().Replace([]*Block{b})
+}
+
+func TestAddPeerBlock(t *testing.T) {
+
+	tx := &Tx{ID: "test"}
+	m.Txs["test"] = tx
+
+	b := &Block{
+		Difficulty: 1,
+		Hash:       "x",
+		Transactions: []*Tx{
+			{ID: "test"},
+		},
+	}
+
+	BlockChain().AddPeerBlock(b)
+}
