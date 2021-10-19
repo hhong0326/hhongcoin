@@ -63,34 +63,27 @@ func TestBlockChain(t *testing.T) {
 
 func TestBlocks(t *testing.T) {
 
-	fakeBlocks := 0
+	blocks := []*Block{
+		{Height: 2, PrevHash: "x"},
+		{Height: 1, PrevHash: ""}, // Genesis block
+	}
+
+	fakeBlock := 0
 
 	dbStorage = fakeDB{
 		fakeFindBlock: func() []byte {
-			var b *Block
 
-			if fakeBlocks == 0 {
-				b = &Block{
-					Height:   2,
-					PrevHash: "x",
-				}
-			}
-
-			if fakeBlocks == 1 {
-				b = &Block{
-					Height: 1,
-				}
-			}
-
-			fakeBlocks++
-			return utils.ToBytes(b)
+			defer func() {
+				fakeBlock++
+			}()
+			return utils.ToBytes(blocks[fakeBlock])
 		},
 	}
 
 	bc := &blockchain{}
-	blocks := Blocks(bc)
+	blocksResult := Blocks(bc)
 
-	if reflect.TypeOf(blocks) != reflect.TypeOf([]*Block{}) {
+	if reflect.TypeOf(blocksResult) != reflect.TypeOf([]*Block{}) {
 		t.Error("Blocks() should return a slice of blocks")
 	}
 
@@ -137,27 +130,86 @@ func TestFindTx(t *testing.T) {
 }
 
 func TestReplace(t *testing.T) {
-
-	b := &Block{
-		Difficulty: 1,
-		Hash:       "x",
+	bc := &blockchain{
+		Height:            1,
+		CurrentDifficulty: 1,
+		NewestHash:        "x",
 	}
 
-	BlockChain().Replace([]*Block{b})
+	blocks := []*Block{
+		{Difficulty: 2, Hash: "xx"},
+		{Difficulty: 2, Hash: "xx"},
+	}
+
+	bc.Replace(blocks)
+
+	if bc.Height != 2 || bc.CurrentDifficulty != 2 || bc.NewestHash != "xx" {
+		t.Error("Replace() should mutate the blockchain")
+	}
 }
 
 func TestAddPeerBlock(t *testing.T) {
 
-	tx := &Tx{ID: "test"}
-	m.Txs["test"] = tx
+	bc := &blockchain{
+		Height:            1,
+		CurrentDifficulty: 1,
+		NewestHash:        "xx",
+	}
 
-	b := &Block{
-		Difficulty: 1,
-		Hash:       "x",
+	m.Txs["test"] = &Tx{}
+
+	newb := &Block{
+		Difficulty: 2,
+		Hash:       "test",
 		Transactions: []*Tx{
 			{ID: "test"},
 		},
 	}
 
-	BlockChain().AddPeerBlock(b)
+	bc.AddPeerBlock(newb)
+
+	if bc.Height != 2 || bc.CurrentDifficulty != 2 || bc.NewestHash != "test" {
+		t.Error("AddPeerBlock() should mutate the blockchain.")
+	}
+}
+
+func TestGetDifficulty(t *testing.T) {
+
+	blocks := []*Block{
+		{PrevHash: "x"},
+		{PrevHash: "x"},
+		{PrevHash: "x"},
+		{PrevHash: "x"},
+		{PrevHash: ""},
+	}
+
+	fakeBlock := 0
+	dbStorage = fakeDB{
+		fakeFindBlock: func() []byte {
+			defer func() {
+				fakeBlock++
+			}()
+			return utils.ToBytes(blocks[fakeBlock])
+		},
+	}
+
+	type test struct {
+		height int
+		want   int
+	}
+
+	tests := []test{
+		{height: 0, want: defaultDifficulty},
+		{height: 2, want: defaultDifficulty},
+		{height: 5, want: defaultDifficulty + 1},
+	}
+
+	for _, tc := range tests {
+		bc := &blockchain{Height: tc.height, CurrentDifficulty: defaultDifficulty}
+		got := getDifficulty(bc)
+
+		if got != tc.want {
+			t.Errorf("getDifficulty() should return %d, got %d", tc.want, got)
+		}
+	}
 }

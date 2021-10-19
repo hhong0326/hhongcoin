@@ -178,6 +178,7 @@ func getDifficulty(b *blockchain) int {
 // 	return ownedTxOuts
 // }
 
+// code challenge
 // Unspent TxOuts
 func UTxOutsByAddress(address string, b *blockchain) []*UTxOut {
 	var uTxOuts []*UTxOut

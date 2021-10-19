@@ -169,6 +169,7 @@ func makeCoinbaseTx(address string) *Tx {
 var ErrorNoMoney = errors.New("not enough money")
 var ErrorNotValid = errors.New("Tx Invalid")
 
+// code challenge
 func makeTx(from, to string, amount int) (*Tx, error) {
 	if BalanceByAddress(from, BlockChain()) < amount {
 		return nil, ErrorNoMoney
