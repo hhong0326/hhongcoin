@@ -213,3 +213,18 @@ func TestGetDifficulty(t *testing.T) {
 		}
 	}
 }
+
+func TestUTxOutsByAddress(t *testing.T) {
+
+	bc := &blockchain{}
+	address := "x"
+
+	utxOuts := UTxOutsByAddress(address, bc)
+
+	if len(utxOuts) == 0 {
+		t.Error("UTxOutsByAddress() should return result")
+	}
+}
+
+func TestBalanceByAddress(t *testing.T) {
+}
