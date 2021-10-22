@@ -216,31 +216,110 @@ func TestGetDifficulty(t *testing.T) {
 
 func TestUTxOutsByAddress(t *testing.T) {
 
+	t.Run("not FindTx", func(t *testing.T) {
+		blocks := []*Block{
+			{
+				Height:   2,
+				PrevHash: "x",
+			},
+			{
+				Height:   1,
+				PrevHash: "",
+				Transactions: []*Tx{
+					{
+						ID: "test",
+						TxIns: []*TxIn{
+							{
+								TxID:      "x",
+								Signature: "COINBASE",
+							},
+						},
+						TxOuts: []*TxOut{
+							{
+								Address: "x",
+								Amount:  0,
+							},
+						},
+					},
+				},
+			}, // Genesis block
+		}
+
+		fakeBlock := 0
+
+		dbStorage = fakeDB{
+			fakeFindBlock: func() []byte {
+
+				defer func() {
+					fakeBlock++
+				}()
+				return utils.ToBytes(blocks[fakeBlock])
+			},
+		}
+
+		bc := &blockchain{
+			NewestHash:        "x",
+			Height:            2,
+			CurrentDifficulty: 1,
+		}
+
+		address := "x"
+		utxOuts := UTxOutsByAddress(address, bc)
+
+		if len(utxOuts) == 0 {
+			t.Error("UTxOutsByAddress() should return result")
+		}
+	})
+
+	t.Run("with FindTx", func(t *testing.T) {
+
+		dbStorage = fakeDB{
+			fakeFindBlock: func() []byte {
+
+				b := &Block{
+					Height: 1,
+					Hash:   "xxx",
+					Transactions: []*Tx{
+						{
+							ID: "test",
+							TxIns: []*TxIn{
+								{
+									TxID:      "test", // "test" of TestFindTx
+									Index:     0,
+									Signature: "xx",
+								},
+							},
+							TxOuts: []*TxOut{
+								{
+									Address: "x",
+									Amount:  0,
+								},
+							},
+						},
+					},
+				}
+				return utils.ToBytes(b)
+			},
+		}
+
+		address := "x"
+		bc := &blockchain{
+			NewestHash:        "xxx",
+			Height:            1,
+			CurrentDifficulty: 1,
+		}
+
+		UTxOutsByAddress(address, bc)
+	})
+}
+
+func TestBalanceByAddress(t *testing.T) {
+
 	blocks := []*Block{
-		{
-			Height:   2,
-			PrevHash: "x",
-		},
 		{
 			Height:   1,
 			PrevHash: "",
 			Transactions: []*Tx{
-				// {
-				// 	ID: "test2",
-				// 	TxIns: []*TxIn{
-				// 		{
-				// 			TxID:      "xx",
-				// 			Index:     1,
-				// 			Signature: "",
-				// 		},
-				// 	},
-				// 	TxOuts: []*TxOut{
-				// 		{
-				// 			Address: "xx",
-				// 			Amount:  0,
-				// 		},
-				// 	},
-				// },
 				{
 					ID: "test",
 					TxIns: []*TxIn{
@@ -272,20 +351,15 @@ func TestUTxOutsByAddress(t *testing.T) {
 		},
 	}
 
+	address := "x"
 	bc := &blockchain{
-		NewestHash:        "x",
-		Height:            2,
+		NewestHash:        "xxx",
+		Height:            1,
 		CurrentDifficulty: 1,
 	}
 
-	address := "x"
-	utxOuts := UTxOutsByAddress(address, bc)
-
-	t.Log(len(utxOuts))
-	if len(utxOuts) == 0 {
-		t.Error("UTxOutsByAddress() should return result")
+	result := BalanceByAddress(address, bc)
+	if result < 0 {
+		t.Error("BalanceByAddress() should return int > 0")
 	}
-}
-
-func TestBalanceByAddress(t *testing.T) {
 }
