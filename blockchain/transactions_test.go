@@ -62,3 +62,20 @@ func TestGetMempool(t *testing.T) {
 	// var rw http.ResponseWriter
 	// GetMempool(m, rw)
 }
+
+// relative http
+func TestAddTx(t *testing.T) {
+	t.Run("Add Tx", func(t *testing.T) {
+		// Mempool().Txs["test"] = &Tx{}
+		// _, err := Mempool().AddTx("test", 100)
+
+		// if err != nil {
+		// 	t.Error("AddTx() should return a new tx")
+		// }
+	})
+}
+
+// cc
+func TestMakeTx(t *testing.T) {
+
+}
