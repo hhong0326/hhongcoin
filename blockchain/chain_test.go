@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"net/http/httptest"
 	"reflect"
 	"sync"
 	"testing"
@@ -362,4 +363,17 @@ func TestBalanceByAddress(t *testing.T) {
 	if result < 0 {
 		t.Error("BalanceByAddress() should return int > 0")
 	}
+}
+
+func TestStatus(t *testing.T) {
+
+	bc := &blockchain{
+		NewestHash:        "xxx",
+		Height:            1,
+		CurrentDifficulty: 1,
+	}
+
+	w := httptest.NewRecorder()
+
+	Status(bc, w)
 }
