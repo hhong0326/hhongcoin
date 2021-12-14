@@ -376,4 +376,7 @@ func TestStatus(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	Status(bc, w)
+	if w.Result().StatusCode != 200 {
+		t.Error("GetMempool should return 200")
+	}
 }

@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"net/http/httptest"
 	"testing"
 )
 
@@ -58,7 +59,13 @@ func TestAddPeerTx(t *testing.T) {
 func TestGetMempool(t *testing.T) {
 
 	// var rw http.ResponseWriter
-	// GetMempool(Mempool(), rw)
+
+	rw := httptest.NewRecorder()
+	GetMempool(Mempool(), rw)
+
+	if rw.Result().StatusCode != 200 {
+		t.Error("GetMempool should return 200")
+	}
 }
 
 // relative http
