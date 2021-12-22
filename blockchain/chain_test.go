@@ -267,6 +267,7 @@ func TestUTxOutsByAddress(t *testing.T) {
 		address := "x"
 		utxOuts := UTxOutsByAddress(address, bc)
 
+		t.Log(utxOuts)
 		if len(utxOuts) == 0 {
 			t.Error("UTxOutsByAddress() should return result")
 		}
@@ -310,7 +311,10 @@ func TestUTxOutsByAddress(t *testing.T) {
 			CurrentDifficulty: 1,
 		}
 
-		UTxOutsByAddress(address, bc)
+		utxOuts := UTxOutsByAddress(address, bc)
+		if len(utxOuts) != 0 {
+			t.Error("Should return []")
+		}
 	})
 }
 

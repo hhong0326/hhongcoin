@@ -14,24 +14,47 @@ func TestSign(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	// tx := &Tx{
-	// 	ID:        "test",
-	// 	Timestamp: 1,
-	// 	TxIns: []*TxIn{
-	// 		{
-	// 			TxID:      "testTx",
-	// 			Index:     0,
-	// 			Signature: "",
-	// 		},
-	// 	},
-	// 	TxOuts: []*TxOut{},
-	// }
 
-	// valid := validate(tx)
-	// t.Log(valid)
-	// if valid {
-	// 	t.Error("validate() should return false")
-	// }
+	// t.Run("Validate false: prevTx == nil", func(t *testing.T) {
+
+	// 	once = *new(sync.Once) // bcz shared variable in the same package
+	// 	dbStorage = fakeDB{
+	// 		fakeFindBlock: func() []byte {
+
+	// 			b := &Block{
+	// 				Height: 1,
+	// 				Hash:   "xxx",
+	// 				Transactions: []*Tx{
+	// 					{
+	// 						ID: "test",
+	// 						TxIns: []*TxIn{
+	// 							{
+	// 								TxID:      "test", // "test" of TestFindTx
+	// 								Index:     0,
+	// 								Signature: "xx",
+	// 							},
+	// 						},
+	// 						TxOuts: []*TxOut{
+	// 							{
+	// 								Address: "x",
+	// 								Amount:  0,
+	// 							},
+	// 						},
+	// 					},
+	// 				},
+	// 			}
+
+	// 			return utils.ToBytes(b)
+	// 		},
+	// 	}
+
+	// 	valid := validate(Mempool().Txs["test"])
+	// 	if valid {
+	// 		t.Error("validate() should return false")
+	// 	}
+
+	// })
+
 }
 
 func TestIsOnMempool(t *testing.T) {
