@@ -11,12 +11,25 @@ import (
 	"github.com/hhong0326/hhongcoin/wallet"
 )
 
+// interface for fake db testing
+type chains interface {
+	UTxOutsByAddress(address string, b *blockchain) []*UTxOut
+	BalanceByAddress(address string, b *blockchain) int
+}
+
 // transaction life-cycle
 // mempool(Memory Pool) = 아직 확정되지 않은 거래 like array or slice before db
 
 const (
 	minerReward int = 50
 )
+
+// interface for fake db testing
+type mp interface {
+	Mempool()
+}
+
+var mem mp
 
 type mempool struct {
 	Txs map[string]*Tx

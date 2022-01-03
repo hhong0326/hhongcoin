@@ -5,6 +5,14 @@ import (
 	"testing"
 )
 
+type fakeMp struct {
+	fakeMempool func()
+}
+
+// using fake if changes by IF
+// need interface to get same type
+func (f fakeMp) Mempool() {}
+
 func TestSign(t *testing.T) {
 	tx := &Tx{}
 
@@ -57,11 +65,55 @@ func TestValidate(t *testing.T) {
 
 }
 
+// Mempool
+
 func TestIsOnMempool(t *testing.T) {
 
-}
+	t.Run("Not Exist", func(t *testing.T) {
 
-// Mempool
+		out := &UTxOut{
+			TxID:   "test",
+			Index:  0,
+			Amount: 100,
+		}
+
+		if isOnMempool(out) {
+			t.Error("isOnMempool should return false")
+		}
+	})
+
+	t.Run("Is Exist", func(t *testing.T) {
+
+		m := Mempool()
+		m.Txs["test"] = &Tx{
+			ID:        "test",
+			Timestamp: 123,
+			TxIns: []*TxIn{
+				{
+					TxID:      "test",
+					Index:     0,
+					Signature: "test",
+				},
+			},
+			TxOuts: []*TxOut{
+				{
+					Address: "test",
+					Amount:  100,
+				},
+			},
+		}
+
+		out := &UTxOut{
+			TxID:   "test",
+			Index:  0,
+			Amount: 100,
+		}
+
+		if !isOnMempool(out) {
+			t.Error("isOnMempool should return true")
+		}
+	})
+}
 
 func TestAddPeerTx(t *testing.T) {
 
@@ -94,7 +146,13 @@ func TestGetMempool(t *testing.T) {
 // relative http
 func TestAddTx(t *testing.T) {
 	t.Run("Add Tx", func(t *testing.T) {
-		// Mempool().Txs["test"] = &Tx{}
+
+		// tx := &Tx{
+		// 	ID:        "test",
+		// 	Timestamp: 1,
+		// 	TxIns:     []*TxIn{},
+		// 	TxOuts:    []*TxOut{},
+		// }
 		// _, err := Mempool().AddTx("test", 100)
 
 		// if err != nil {
